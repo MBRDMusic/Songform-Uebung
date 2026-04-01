@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Song Form – Merkmale zuordnen</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 16px; padding-bottom: 100px; }
+  
+  h1 { text-align: center; font-size: 1.6em; margin-bottom: 4px; color: #fff; }
+  .subtitle { text-align: center; font-size: 0.9em; color: #94a3b8; margin-bottom: 16px; }
+  
+  .instructions { background: #1e293b; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; text-align: center; font-size: 0.85em; color: #94a3b8; border: 1px solid #334155; }
+  .instructions strong { color: #e2e8f0; }
+  
+  /* Drop zones */
+  .zones { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
+  .zone { background: #1e293b; border-radius: 12px; border: 2px solid #334155; width: calc(50% - 5px); min-height: 140px; padding: 10px; transition: border-color 0.2s, background 0.2s; }
+  .zone.highlight { border-color: #3b82f6; background: #1e3a5f; }
+  .zone-title { font-weight: 700; font-size: 1em; margin-bottom: 8px; text-align: center; padding: 4px 0; border-radius: 6px; }
+  .zone-items { min-height: 50px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .zone-items .card { font-size: 0.75em; padding: 6px 10px; }
+  
+  /* Colors per Formteil */
+  .z-intro .zone-title { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
+  .z-verse .zone-title { color: #10b981; border-bottom: 2px solid #10b981; }
+  .z-prechorus .zone-title { color: #8b5cf6; border-bottom: 2px solid #8b5cf6; }
+  .z-chorus .zone-title { color: #e94560; border-bottom: 2px solid #e94560; }
+  .z-bridge .zone-title { color: #f59e0b; border-bottom: 2px solid #f59e0b; }
+  .z-solo .zone-title { color: #ec4899; border-bottom: 2px solid #ec4899; }
+  .z-outro .zone-title { color: #6366f1; border-bottom: 2px solid #6366f1; }
+  .z-interlude .zone-title { color: #14b8a6; border-bottom: 2px solid #14b8a6; }
+  
+  /* Cards */
+  .card-pool { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; padding: 12px; background: #1e293b; border-radius: 12px; border: 2px dashed #475569; min-height: 60px; }
+  .pool-label { text-align: center; font-size: 0.8em; color: #64748b; margin-bottom: 6px; }
+  
+  .card { background: #334155; color: #e2e8f0; padding: 8px 14px; border-radius: 8px; font-size: 0.85em; font-weight: 500; cursor: grab; touch-action: none; transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s; white-space: nowrap; }
+  .card:active, .card.dragging { transform: scale(1.08); box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; opacity: 0.9; }
+  .card.correct { background: #065f46; color: #a7f3d0; }
+  .card.incorrect { background: #7f1d1d; color: #fca5a5; }
+  
+  /* Buttons */
+  .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 16px; position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(transparent, #0f172a 30%); z-index: 50; }
+  .btn { padding: 14px 28px; border: none; border-radius: 10px; font-size: 1em; font-weight: 700; cursor: pointer; transition: transform 0.1s; }
+  .btn:active { transform: scale(0.96); }
+  .btn-check { background: #3b82f6; color: #fff; }
+  .btn-reset { background: #475569; color: #e2e8f0; }
+  
+  .score { text-align: center; margin-top: 12px; font-size: 1.1em; font-weight: 700; min-height: 1.4em; }
+  .score.good { color: #10b981; }
+  .score.partial { color: #f59e0b; }
+  .score.bad { color: #e94560; }
+  
+  @media (max-width: 600px) {
+    .zone { width: 100%; }
+    .card { font-size: 0.8em; padding: 7px 11px; }
+    h1 { font-size: 1.3em; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎵 Formteile & Merkmale</h1>
+<p class="subtitle">Ziehe die Kärtchen in das passende Feld</p>
+
+<div class="instructions">
+  <strong>So geht's:</strong> Ziehe jedes Merkmal mit dem Finger in den passenden Formteil. 
+  Drücke <strong>„Überprüfen"</strong> wenn du fertig bist.
+</div>
+
+<div class="score" id="score"></div>
+
+<div class="pool-label">Merkmale zum Zuordnen:</div>
+<div class="card-pool" id="pool"></div>
+
+<div class="zones" id="zones"></div>
+
+<div class="btn-row">
+  <button class="btn btn-check" onclick="checkAnswers()">✓ Überprüfen</button>
+  <button class="btn btn-reset" onclick="resetAll()">↺ Neu starten</button>
+</div>
+
+<script>
+const formteile = [
+  { id: 'intro', name: 'Intro', css: 'z-intro' },
+  { id: 'verse', name: 'Verse', css: 'z-verse' },
+  { id: 'prechorus', name: 'Pre-Chorus', css: 'z-prechorus' },
+  { id: 'chorus', name: 'Chorus', css: 'z-chorus' },
+  { id: 'bridge', name: 'Bridge', css: 'z-bridge' },
+  { id: 'solo', name: 'Solo', css: 'z-solo' },
+  { id: 'outro', name: 'Outro', css: 'z-outro' },
+  { id: 'interlude', name: 'Interlude', css: 'z-interlude' },
+];
+
+const merkmale = [
+  { text: 'Oft instrumental, kein Gesang', answer: 'intro' },
+  { text: 'Setzt die Stimmung zu Beginn', answer: 'intro' },
+  { text: 'Meist 4–8 Takte lang', answer: 'intro' },
+  { text: 'Text ändert sich, Melodie bleibt', answer: 'verse' },
+  { text: 'Erzählt die Geschichte', answer: 'verse' },
+  { text: 'Ruhiger als der Chorus', answer: 'verse' },
+  { text: 'Baut Spannung zum Chorus auf', answer: 'prechorus' },
+  { text: 'Kurzer Abschnitt (2–4 Takte)', answer: 'prechorus' },
+  { text: 'Melodisch ansteigend', answer: 'prechorus' },
+  { text: 'Eingängige, wiedererkennbare Melodie', answer: 'chorus' },
+  { text: 'Enthält meist den Songtitel', answer: 'chorus' },
+  { text: 'Dynamisch lauter und voller', answer: 'chorus' },
+  { text: 'Text wiederholt sich', answer: 'chorus' },
+  { text: 'Kommt meist nur einmal vor', answer: 'bridge' },
+  { text: 'Andere Harmonien als Verse/Chorus', answer: 'bridge' },
+  { text: 'Bringt Kontrast und Abwechslung', answer: 'bridge' },
+  { text: 'Instrument spielt allein im Fokus', answer: 'solo' },
+  { text: 'Kein Gesang, zeigt Virtuosität', answer: 'solo' },
+  { text: 'Lässt den Song ausklingen', answer: 'outro' },
+  { text: 'Fade-Out oder klarer Schluss', answer: 'outro' },
+  { text: 'Kann Chorus-Wiederholung sein', answer: 'outro' },
+  { text: 'Instrumentaler Übergang zwischen Teilen', answer: 'interlude' },
+  { text: 'Oft kehrt das Intro-Riff zurück', answer: 'interlude' },
+  { text: 'Kurze Atempause im Song', answer: 'interlude' },
+];
+
+// Shuffle
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Build UI
+const poolEl = document.getElementById('pool');
+const zonesEl = document.getElementById('zones');
+
+function buildUI() {
+  poolEl.innerHTML = '';
+  zonesEl.innerHTML = '';
+  document.getElementById('score').textContent = '';
+  document.getElementById('score').className = 'score';
+  
+  const shuffled = shuffle(merkmale);
+  shuffled.forEach((m, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = m.text;
+    card.dataset.answer = m.answer;
+    card.dataset.id = 'card-' + i;
+    card.setAttribute('draggable', 'true');
+    setupDrag(card);
+    poolEl.appendChild(card);
+  });
+  
+  // Shuffle formteile display order too
+  const shuffledZones = shuffle(formteile);
+  shuffledZones.forEach(f => {
+    const zone = document.createElement('div');
+    zone.className = 'zone ' + f.css;
+    zone.dataset.formteil = f.id;
+    zone.innerHTML = `<div class="zone-title">${f.name}</div><div class="zone-items"></div>`;
+    setupDropZone(zone);
+    zonesEl.appendChild(zone);
+  });
+  
+  // Pool is also a drop zone (to move cards back)
+  setupDropZone(poolEl, true);
+}
+
+// Drag & Drop (touch + mouse)
+let dragEl = null;
+let dragClone = null;
+let dragOffsetX = 0, dragOffsetY = 0;
+let dragSource = null;
+
+function setupDrag(card) {
+  // Touch
+  card.addEventListener('touchstart', onTouchStart, { passive: false });
+  card.addEventListener('touchmove', onTouchMove, { passive: false });
+  card.addEventListener('touchend', onTouchEnd, { passive: false });
+  // Mouse
+  card.addEventListener('mousedown', onMouseDown);
+}
+
+function onTouchStart(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  startDrag(e.target.closest('.card'), touch.clientX, touch.clientY);
+}
+
+function onTouchMove(e) {
+  if (!dragClone) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  moveDrag(touch.clientX, touch.clientY);
+}
+
+function onTouchEnd(e) {
+  if (!dragClone) return;
+  const touch = e.changedTouches[0];
+  endDrag(touch.clientX, touch.clientY);
+}
+
+function onMouseDown(e) {
+  startDrag(e.target.closest('.card'), e.clientX, e.clientY);
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function onMouseMove(e) {
+  if (!dragClone) return;
+  moveDrag(e.clientX, e.clientY);
+}
+
+function onMouseUp(e) {
+  document.removeEventListener('mousemove', onMouseMove);
+  document.removeEventListener('mouseup', onMouseUp);
+  if (!dragClone) return;
+  endDrag(e.clientX, e.clientY);
+}
+
+function startDrag(card, x, y) {
+  if (!card) return;
+  dragEl = card;
+  dragSource = card.parentElement;
+  
+  const rect = card.getBoundingClientRect();
+  dragOffsetX = x - rect.left;
+  dragOffsetY = y - rect.top;
+  
+  dragClone = card.cloneNode(true);
+  dragClone.style.position = 'fixed';
+  dragClone.style.width = rect.width + 'px';
+  dragClone.style.zIndex = '9999';
+  dragClone.style.pointerEvents = 'none';
+  dragClone.style.transform = 'scale(1.08)';
+  dragClone.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+  dragClone.style.left = (x - dragOffsetX) + 'px';
+  dragClone.style.top = (y - dragOffsetY) + 'px';
+  document.body.appendChild(dragClone);
+  
+  card.style.opacity = '0.3';
+  
+  // Remove check styling
+  card.classList.remove('correct', 'incorrect');
+}
+
+function moveDrag(x, y) {
+  if (!dragClone) return;
+  dragClone.style.left = (x - dragOffsetX) + 'px';
+  dragClone.style.top = (y - dragOffsetY) + 'px';
+  
+  // Highlight zones
+  document.querySelectorAll('.zone, .card-pool').forEach(z => {
+    const r = z.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+      z.classList.add('highlight');
+    } else {
+      z.classList.remove('highlight');
+    }
+  });
+}
+
+function endDrag(x, y) {
+  if (!dragClone) return;
+  
+  document.body.removeChild(dragClone);
+  dragClone = null;
+  dragEl.style.opacity = '1';
+  
+  // Find target zone
+  let target = null;
+  document.querySelectorAll('.zone').forEach(z => {
+    const r = z.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+      target = z.querySelector('.zone-items');
+    }
+    z.classList.remove('highlight');
+  });
+  
+  // Check pool
+  const poolRect = poolEl.getBoundingClientRect();
+  if (x >= poolRect.left && x <= poolRect.right && y >= poolRect.top && y <= poolRect.bottom) {
+    target = poolEl;
+  }
+  poolEl.classList.remove('highlight');
+  
+  if (target && target !== dragSource) {
+    target.appendChild(dragEl);
+  }
+  
+  dragEl = null;
+  dragSource = null;
+}
+
+function setupDropZone(zone, isPool) {
+  // Zones accept drops via the drag logic above
+}
+
+// Check answers
+function checkAnswers() {
+  let correct = 0;
+  let total = merkmale.length;
+  
+  document.querySelectorAll('.card').forEach(card => {
+    const answer = card.dataset.answer;
+    const parent = card.closest('.zone');
+    card.classList.remove('correct', 'incorrect');
+    
+    if (!parent) {
+      // Still in pool
+      card.classList.add('incorrect');
+    } else if (parent.dataset.formteil === answer) {
+      card.classList.add('correct');
+      correct++;
+    } else {
+      card.classList.add('incorrect');
+    }
+  });
+  
+  const scoreEl = document.getElementById('score');
+  const pct = Math.round(correct / total * 100);
+  scoreEl.textContent = `${correct} von ${total} richtig (${pct}%)`;
+  
+  if (pct >= 90) {
+    scoreEl.className = 'score good';
+    scoreEl.textContent += ' 🎉 Super!';
+  } else if (pct >= 60) {
+    scoreEl.className = 'score partial';
+    scoreEl.textContent += ' – Fast geschafft!';
+  } else {
+    scoreEl.className = 'score bad';
+    scoreEl.textContent += ' – Versuch es nochmal!';
+  }
+}
+
+function resetAll() {
+  buildUI();
+}
+
+buildUI();
+</script>
+</body>
+</html>
